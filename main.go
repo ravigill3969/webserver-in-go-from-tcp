@@ -5,12 +5,30 @@ import (
 	"io"
 	"net"
 	"os"
+	"sync"
 )
 
 type Res struct {
 	message string
 	addr    string
 	file    string
+}
+
+var (
+	mu        sync.Mutex
+	activeIPs = make(map[string]struct{})
+)
+
+func storeIPs(ip string) {
+	mu.Lock()
+	defer mu.Lock()
+	activeIPs[ip] = struct{}{}
+}
+
+func deleteIP(ip string) {
+	mu.Lock()
+	defer mu.Lock()
+	delete(activeIPs, ip)
 }
 
 func main() {
@@ -28,19 +46,19 @@ func main() {
 			fmt.Println("Error accepting:", err)
 			continue
 		}
+		storeIPs(c.RemoteAddr().String())
 		fmt.Println("Got a user connected")
 
 		resCh := make(chan *Res)
 
 		go acceptConnection(c, resCh)
 		go sendResponse(c, resCh)
-		go readHtmlFle(resCh, "index.html")
+		go readFile(resCh, "index.html")
 
 	}
 }
 
 func acceptConnection(conn net.Conn, resCh chan<- *Res) {
-	defer conn.Close()
 	buffer := make([]byte, 1024)
 
 	for {
@@ -52,9 +70,9 @@ func acceptConnection(conn net.Conn, resCh chan<- *Res) {
 				fmt.Println("Read error:", err)
 			}
 			close(resCh)
+			deleteIP(conn.RemoteAddr().String())
 			return
 		}
-
 		message := string(buffer[:n])
 		addr := conn.RemoteAddr().String()
 
@@ -64,13 +82,16 @@ func acceptConnection(conn net.Conn, resCh chan<- *Res) {
 			message: message,
 			addr:    addr,
 		}
+
 	}
 }
 
 func sendResponse(conn net.Conn, resCh <-chan *Res) {
 	defer conn.Close()
 	for res := range resCh {
-		if res.file != "" {
+		if res.message == "PING" {
+			conn.Write([]byte("PONG"))
+		} else if res.file != "" {
 			body := res.file
 			response := fmt.Sprintf("HTTP/1.1 200 OK\r\n"+
 				"Content-Type: text/html\r\n"+
@@ -78,7 +99,7 @@ func sendResponse(conn net.Conn, resCh <-chan *Res) {
 				"\r\n%s", len(body), body)
 
 			conn.Write([]byte(response))
-			return
+			continue
 		} else {
 
 			msg := fmt.Sprintf("HTTP/1.1 200 OK\r\n"+
@@ -91,7 +112,7 @@ func sendResponse(conn net.Conn, resCh <-chan *Res) {
 	}
 }
 
-func readHtmlFle(resCh chan<- *Res, fileName string) {
+func readFile(resCh chan<- *Res, fileName string) {
 	f, err := os.ReadFile(fileName)
 	if err != nil {
 		fmt.Println("Error reading file:", err)
@@ -100,4 +121,11 @@ func readHtmlFle(resCh chan<- *Res, fileName string) {
 	resCh <- &Res{
 		file: string(f),
 	}
+
 }
+
+// func readUrlPath(message string) {
+// 	for {
+// 		if
+// 	}
+// }
