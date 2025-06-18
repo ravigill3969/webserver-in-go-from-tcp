@@ -5,6 +5,7 @@ import (
 	"io"
 	"net"
 	"os"
+	"strings"
 	"sync"
 )
 
@@ -15,24 +16,17 @@ type Res struct {
 }
 
 var (
+	maxActiveIps int
+)
+
+var (
 	mu        sync.Mutex
 	activeIPs = make(map[string]struct{})
 )
 
-func storeIPs(ip string) {
-	mu.Lock()
-	defer mu.Lock()
-	activeIPs[ip] = struct{}{}
-}
-
-func deleteIP(ip string) {
-	mu.Lock()
-	defer mu.Lock()
-	delete(activeIPs, ip)
-}
-
 func main() {
-	l, err := net.Listen("tcp", ":8080")
+	maxActiveIps = 3
+	l, err := net.Listen("tcp", ":8081")
 	if err != nil {
 		fmt.Println("Error in starting server:", err)
 		return
@@ -46,16 +40,32 @@ func main() {
 			fmt.Println("Error accepting:", err)
 			continue
 		}
-		storeIPs(c.RemoteAddr().String())
-		fmt.Println("Got a user connected")
+
+		mu.Lock()
+		if len(activeIPs) >= maxActiveIps {
+			mu.Unlock()
+
+			busyMsg := "HTTP/1.1 503 Service Unavailable\r\n" +
+				"Content-Type: text/plain\r\n" +
+				"Content-Length: 11\r\n\r\n" +
+				"Server busy"
+
+			c.Write([]byte(busyMsg))
+			fmt.Println("Rejected connection from", c.RemoteAddr(), "server busy")
+			c.Close()
+			continue
+		}
+
+		activeIPs[c.RemoteAddr().String()] = struct{}{}
+		mu.Unlock()
 
 		resCh := make(chan *Res)
 
 		go acceptConnection(c, resCh)
 		go sendResponse(c, resCh)
 		go readFile(resCh, "index.html")
-
 	}
+
 }
 
 func acceptConnection(conn net.Conn, resCh chan<- *Res) {
@@ -70,13 +80,24 @@ func acceptConnection(conn net.Conn, resCh chan<- *Res) {
 				fmt.Println("Read error:", err)
 			}
 			close(resCh)
-			deleteIP(conn.RemoteAddr().String())
+
+			mu.Lock()
+			delete(activeIPs, conn.RemoteAddr().String())
+			mu.Unlock()
 			return
 		}
 		message := string(buffer[:n])
 		addr := conn.RemoteAddr().String()
 
-		fmt.Printf("Received: %s\n", message)
+		requestData, err := urlMethodHandler(message)
+		daat, err := headersInRequest(message)
+
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+
+		fmt.Println(requestData, daat)
 
 		resCh <- &Res{
 			message: message,
@@ -87,11 +108,17 @@ func acceptConnection(conn net.Conn, resCh chan<- *Res) {
 }
 
 func sendResponse(conn net.Conn, resCh <-chan *Res) {
-	defer conn.Close()
+	defer func() {
+		conn.Close()
+		mu.Lock()
+		delete(activeIPs, conn.RemoteAddr().String())
+		fmt.Println("Connection removed:", conn.RemoteAddr().String())
+		fmt.Println("Active connections:", len(activeIPs))
+		mu.Unlock()
+	}()
+
 	for res := range resCh {
-		if res.message == "PING" {
-			conn.Write([]byte("PONG"))
-		} else if res.file != "" {
+		if res.file != "" {
 			body := res.file
 			response := fmt.Sprintf("HTTP/1.1 200 OK\r\n"+
 				"Content-Type: text/html\r\n"+
@@ -99,15 +126,15 @@ func sendResponse(conn net.Conn, resCh <-chan *Res) {
 				"\r\n%s", len(body), body)
 
 			conn.Write([]byte(response))
-			continue
+			return 
 		} else {
-
 			msg := fmt.Sprintf("HTTP/1.1 200 OK\r\n"+
 				"Content-Type: text/plain\r\n"+
 				"Content-Length: %d\r\n"+
 				"\r\nThanks: %s", len(res.message)+8, res.message)
 
 			conn.Write([]byte(msg))
+			return
 		}
 	}
 }
@@ -124,8 +151,60 @@ func readFile(resCh chan<- *Res, fileName string) {
 
 }
 
-// func readUrlPath(message string) {
-// 	for {
-// 		if
-// 	}
-// }
+type urlMethodHandlerT struct {
+	Method string
+	Path   string
+}
+
+func urlMethodHandler(message string) (urlMethodHandlerT, error) {
+	reqLines := strings.Split(message, "\r\n")
+	if len(reqLines) == 0 || strings.TrimSpace(reqLines[0]) == "" {
+		return urlMethodHandlerT{}, fmt.Errorf("empty or malformed request")
+	}
+
+	requestLine := reqLines[0]
+	parts := strings.Fields(requestLine)
+	if len(parts) < 2 {
+		return urlMethodHandlerT{}, fmt.Errorf("incomplete request line: %q", requestLine)
+	}
+
+	return urlMethodHandlerT{
+		Method: parts[0],
+		Path:   parts[1],
+	}, nil
+}
+
+func headersInRequest(message string) (map[string]string, error) {
+	headers := make(map[string]string)
+
+	if message == "" {
+		return nil, fmt.Errorf("empty request message")
+	}
+
+	reqLines := strings.Split(message, "\r\n")
+	if len(reqLines) == 0 {
+		return nil, fmt.Errorf("request message contains no lines")
+	}
+
+	for _, line := range reqLines[1:] {
+		if line == "" {
+			break
+		}
+
+		parts := strings.SplitN(line, ":", 2)
+		if len(parts) != 2 {
+			return nil, fmt.Errorf("malformed header line: %q", line)
+		}
+
+		key := strings.TrimSpace(parts[0])
+		value := strings.TrimSpace(parts[1])
+
+		if key == "" {
+			return nil, fmt.Errorf("header key empty in line: %q", line)
+		}
+
+		headers[key] = value
+	}
+
+	return headers, nil
+}
