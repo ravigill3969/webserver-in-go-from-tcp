@@ -9,12 +9,12 @@ import (
 )
 
 func main() {
-	l, err := net.Listen("tcp", ":8080")
+	l, err := net.Listen("tcp", ":8081")
 	if err != nil {
 		fmt.Println("Error in starting server:", err)
 		return
 	}
-	fmt.Println("Server started on port 8080")
+	fmt.Println("Server started on port 8081")
 	defer l.Close()
 
 	for {
@@ -42,7 +42,6 @@ func handleConnection(conn net.Conn) {
 	request := string(buffer[:n])
 	fmt.Println("Request from", conn.RemoteAddr())
 
-	// Parse request path
 	lines := strings.Split(request, "\n")
 	if len(lines) == 0 {
 		sendResponse(conn, "HTTP/1.1 400 Bad Request\r\n\r\n")
@@ -57,13 +56,21 @@ func handleConnection(conn net.Conn) {
 
 	path := parts[1]
 
-	if path == "/" {
+	// Serve static files
+	switch {
+	case path == "/":
 		serveFile(conn, "index.html", "text/html")
-	} else if strings.HasSuffix(path, ".css") {
-		serveFile(conn, "index.css", "text/css")
-	} else if strings.HasSuffix(path, ".js") {
-		serveFile(conn, "index.js", "text/javascript")
-	} else {
+	case path == "/about":
+		serveFile(conn, "./about/about.html", "text/html")
+	case path == "/about/about.css":
+		serveFile(conn, "./about/about.css", "text/css")
+	case path == "/about/about.js":
+		serveFile(conn, "./about/about.js", "text/javascript")
+	case strings.HasSuffix(path, ".css"):
+		serveFile(conn, "."+path, "text/css")
+	case strings.HasSuffix(path, ".js"):
+		serveFile(conn, "."+path, "text/javascript")
+	default:
 		sendResponse(conn, "HTTP/1.1 404 Not Found\r\n\r\n404 Not Found")
 	}
 }
