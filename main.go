@@ -6,27 +6,10 @@ import (
 	"net"
 	"os"
 	"strings"
-	"sync"
-)
-
-type Res struct {
-	message string
-	addr    string
-	file    string
-}
-
-var (
-	maxActiveIps int
-)
-
-var (
-	mu        sync.Mutex
-	activeIPs = make(map[string]struct{})
 )
 
 func main() {
-	maxActiveIps = 3
-	l, err := net.Listen("tcp", ":8081")
+	l, err := net.Listen("tcp", ":8080")
 	if err != nil {
 		fmt.Println("Error in starting server:", err)
 		return
@@ -35,176 +18,72 @@ func main() {
 	defer l.Close()
 
 	for {
-		c, err := l.Accept()
+		conn, err := l.Accept()
 		if err != nil {
 			fmt.Println("Error accepting:", err)
 			continue
 		}
-
-		mu.Lock()
-		if len(activeIPs) >= maxActiveIps {
-			mu.Unlock()
-
-			busyMsg := "HTTP/1.1 503 Service Unavailable\r\n" +
-				"Content-Type: text/plain\r\n" +
-				"Content-Length: 11\r\n\r\n" +
-				"Server busy"
-
-			c.Write([]byte(busyMsg))
-			fmt.Println("Rejected connection from", c.RemoteAddr(), "server busy")
-			c.Close()
-			continue
-		}
-
-		activeIPs[c.RemoteAddr().String()] = struct{}{}
-		mu.Unlock()
-
-		resCh := make(chan *Res)
-
-		go acceptConnection(c, resCh)
-		go sendResponse(c, resCh)
-		go readFile(resCh, "index.html")
+		go handleConnection(conn)
 	}
-
 }
 
-func acceptConnection(conn net.Conn, resCh chan<- *Res) {
+func handleConnection(conn net.Conn) {
+	defer conn.Close()
+
 	buffer := make([]byte, 1024)
-
-	for {
-		n, err := conn.Read(buffer)
-		if err != nil {
-			if err == io.EOF {
-				fmt.Println("Connection closed by client")
-			} else {
-				fmt.Println("Read error:", err)
-			}
-			close(resCh)
-
-			mu.Lock()
-			delete(activeIPs, conn.RemoteAddr().String())
-			mu.Unlock()
-			return
-		}
-		message := string(buffer[:n])
-		addr := conn.RemoteAddr().String()
-
-		requestData, err := urlMethodHandler(message)
-		daat, err := headersInRequest(message)
-
-		if err != nil {
-			fmt.Println(err)
-			return
-		}
-
-		fmt.Println(requestData, daat)
-
-		resCh <- &Res{
-			message: message,
-			addr:    addr,
-		}
-
-	}
-}
-
-func sendResponse(conn net.Conn, resCh <-chan *Res) {
-	defer func() {
-		conn.Close()
-		mu.Lock()
-		delete(activeIPs, conn.RemoteAddr().String())
-		fmt.Println("Connection removed:", conn.RemoteAddr().String())
-		fmt.Println("Active connections:", len(activeIPs))
-		mu.Unlock()
-	}()
-
-	for res := range resCh {
-		if res.file != "" {
-			body := res.file
-			response := fmt.Sprintf("HTTP/1.1 200 OK\r\n"+
-				"Content-Type: text/html\r\n"+
-				"Content-Length: %d\r\n"+
-				"\r\n%s", len(body), body)
-
-			conn.Write([]byte(response))
-			return 
-		} else {
-			msg := fmt.Sprintf("HTTP/1.1 200 OK\r\n"+
-				"Content-Type: text/plain\r\n"+
-				"Content-Length: %d\r\n"+
-				"\r\nThanks: %s", len(res.message)+8, res.message)
-
-			conn.Write([]byte(msg))
-			return
-		}
-	}
-}
-
-func readFile(resCh chan<- *Res, fileName string) {
-	f, err := os.ReadFile(fileName)
+	n, err := conn.Read(buffer)
 	if err != nil {
-		fmt.Println("Error reading file:", err)
+		if err != io.EOF {
+			fmt.Println("Read error:", err)
+		}
 		return
 	}
-	resCh <- &Res{
-		file: string(f),
+
+	request := string(buffer[:n])
+	fmt.Println("Request from", conn.RemoteAddr())
+
+	// Parse request path
+	lines := strings.Split(request, "\n")
+	if len(lines) == 0 {
+		sendResponse(conn, "HTTP/1.1 400 Bad Request\r\n\r\n")
+		return
 	}
 
-}
-
-type urlMethodHandlerT struct {
-	Method string
-	Path   string
-}
-
-func urlMethodHandler(message string) (urlMethodHandlerT, error) {
-	reqLines := strings.Split(message, "\r\n")
-	if len(reqLines) == 0 || strings.TrimSpace(reqLines[0]) == "" {
-		return urlMethodHandlerT{}, fmt.Errorf("empty or malformed request")
-	}
-
-	requestLine := reqLines[0]
-	parts := strings.Fields(requestLine)
+	parts := strings.Fields(lines[0])
 	if len(parts) < 2 {
-		return urlMethodHandlerT{}, fmt.Errorf("incomplete request line: %q", requestLine)
+		sendResponse(conn, "HTTP/1.1 400 Bad Request\r\n\r\n")
+		return
 	}
 
-	return urlMethodHandlerT{
-		Method: parts[0],
-		Path:   parts[1],
-	}, nil
+	path := parts[1]
+
+	if path == "/" {
+		serveFile(conn, "index.html", "text/html")
+	} else if strings.HasSuffix(path, ".css") {
+		serveFile(conn, "index.css", "text/css")
+	} else if strings.HasSuffix(path, ".js") {
+		serveFile(conn, "index.js", "text/javascript")
+	} else {
+		sendResponse(conn, "HTTP/1.1 404 Not Found\r\n\r\n404 Not Found")
+	}
 }
 
-func headersInRequest(message string) (map[string]string, error) {
-	headers := make(map[string]string)
-
-	if message == "" {
-		return nil, fmt.Errorf("empty request message")
+func serveFile(conn net.Conn, filename, contentType string) {
+	content, err := os.ReadFile(filename)
+	if err != nil {
+		fmt.Println("Error reading file:", err)
+		sendResponse(conn, "HTTP/1.1 404 Not Found\r\n\r\n404 File Not Found")
+		return
 	}
 
-	reqLines := strings.Split(message, "\r\n")
-	if len(reqLines) == 0 {
-		return nil, fmt.Errorf("request message contains no lines")
-	}
+	response := fmt.Sprintf("HTTP/1.1 200 OK\r\n"+
+		"Content-Type: %s\r\n"+
+		"Content-Length: %d\r\n\r\n%s",
+		contentType, len(content), string(content))
 
-	for _, line := range reqLines[1:] {
-		if line == "" {
-			break
-		}
+	sendResponse(conn, response)
+}
 
-		parts := strings.SplitN(line, ":", 2)
-		if len(parts) != 2 {
-			return nil, fmt.Errorf("malformed header line: %q", line)
-		}
-
-		key := strings.TrimSpace(parts[0])
-		value := strings.TrimSpace(parts[1])
-
-		if key == "" {
-			return nil, fmt.Errorf("header key empty in line: %q", line)
-		}
-
-		headers[key] = value
-	}
-
-	return headers, nil
+func sendResponse(conn net.Conn, response string) {
+	conn.Write([]byte(response))
 }
