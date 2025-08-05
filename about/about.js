@@ -1,1 +1,1 @@
-console.log("object");
+alert("this is about page, less goo")

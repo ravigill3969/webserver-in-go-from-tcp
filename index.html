@@ -3,92 +3,308 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Go Flow Chat - Professional Communication Platform</title>
     <link rel="stylesheet" href="index.css" />
-    <title>Go Flow Chat</title>
+    <link
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
+      rel="stylesheet"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
   </head>
   <body>
-    <div class="chat-container">
-      <div class="sidebar">
-        <div class="sidebar-header">
-          <h2>Go Flow Chat</h2>
-          <p>Concurrent messaging</p>
+    <header class="header">
+      <div class="container">
+        <div class="logo">
+          <i class="fas fa-comments"></i>
+          <span>Go Flow Chat</span>
         </div>
-        <div class="user-list">
-          <div class="user-item active">
-            <div class="user-avatar">A</div>
-            <div class="user-info">
-              <div class="user-name">Alice Johnson</div>
-            </div>
-          </div>
-        </div>
+        <nav class="nav">
+          <a href="#features">Features</a>
+          <a href="#rooms">Rooms</a>
+          <a href="#support">Support</a>
+        </nav>
       </div>
+    </header>
 
-      <div class="chat-main">
-        <div class="chat-header">
-          <h3>Alice Johnson <span class="online-indicator"></span></h3>
-        </div>
-
-        <div class="chat-messages" id="messages">
-          <div class="message received">
-            <div class="message-bubble">
-              Hey! How's the Go server implementation coming along?
-              <div class="message-time">10:30 AM</div>
-            </div>
-          </div>
-          <div class="message sent">
-            <div class="message-bubble">
-              Great! Just implemented the goroutine pool for handling concurrent
-              connections. The performance is amazing!
-              <div class="message-time">10:32 AM</div>
-            </div>
-          </div>
-          <div class="message received">
-            <div class="message-bubble">
-              That sounds awesome! Are you using channels for communication
-              between goroutines?
-              <div class="message-time">10:33 AM</div>
-            </div>
-          </div>
-          <div class="message sent">
-            <div class="message-bubble">
-              Exactly! Channels make it so elegant. It really flows like water
-              💧
-              <div class="message-time">10:35 AM</div>
-            </div>
-          </div>
-          <div class="message received">
-            <div class="message-bubble">
-              Perfect analogy! Can you share the code sometime? I'd love to see
-              how you structured it.
-              <div class="message-time">10:36 AM</div>
-            </div>
+    <main class="main">
+      <section class="hero">
+        <div class="container">
+          <div class="hero-content">
+            <h1 class="hero-title">Professional Communication Platform</h1>
+            <p class="hero-subtitle">
+              Connect with your team through secure, organized chat rooms. Join
+              with your exclusive access key.
+            </p>
           </div>
         </div>
+      </section>
 
-        <div class="chat-input">
-          <div class="input-container">
-            <input
-              type="text"
-              placeholder="Type your message..."
-              id="messageInput"
-            />
+      <section class="rooms-section" id="rooms">
+        <div class="container">
+          <div class="section-header">
+            <h2>Available Rooms</h2>
+            <p>Select a room to join or enter your custom access key below</p>
           </div>
-          <button class="send-btn" onclick="sendMessage()">
-            <svg
-              width="20"
-              height="20"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
+
+          <div class="rooms-grid">
+            <div class="room-card" data-room="study" data-key="njfewg8gwebi">
+              <div class="room-icon">
+                <i class="fas fa-graduation-cap"></i>
+              </div>
+              <div class="room-info">
+                <h3 class="room-title">Study & Research</h3>
+                <p class="room-description">
+                  Academic discussions and study groups
+                </p>
+                <div class="room-key">
+                  <span class="key-label">Access Key:</span>
+                  <code class="key-value">njfewg8gwebi</code>
+                </div>
+              </div>
+              <button class="room-join-btn">
+                <i class="fas fa-arrow-right"></i>
+              </button>
+            </div>
+
+            <div class="room-card" data-room="business" data-key="wrk5m3n8busy">
+              <div class="room-icon">
+                <i class="fas fa-briefcase"></i>
+              </div>
+              <div class="room-info">
+                <h3 class="room-title">Business & Work</h3>
+                <p class="room-description">
+                  Professional workplace communication
+                </p>
+                <div class="room-key">
+                  <span class="key-label">Access Key:</span>
+                  <code class="key-value">wrk5m3n8busy</code>
+                </div>
+              </div>
+              <button class="room-join-btn">
+                <i class="fas fa-arrow-right"></i>
+              </button>
+            </div>
+
+            <div class="room-card" data-room="tech" data-key="t3ch7guru88">
+              <div class="room-icon">
+                <i class="fas fa-code"></i>
+              </div>
+              <div class="room-info">
+                <h3 class="room-title">Technology Hub</h3>
+                <p class="room-description">Development and tech discussions</p>
+                <div class="room-key">
+                  <span class="key-label">Access Key:</span>
+                  <code class="key-value">t3ch7guru88</code>
+                </div>
+              </div>
+              <button class="room-join-btn">
+                <i class="fas fa-arrow-right"></i>
+              </button>
+            </div>
+
+            <div class="room-card" data-room="creative" data-key="mus1c4l1f3tz">
+              <div class="room-icon">
+                <i class="fas fa-palette"></i>
+              </div>
+              <div class="room-info">
+                <h3 class="room-title">Creative Studio</h3>
+                <p class="room-description">
+                  Art, music, and creative collaboration
+                </p>
+                <div class="room-key">
+                  <span class="key-label">Access Key:</span>
+                  <code class="key-value">mus1c4l1f3tz</code>
+                </div>
+              </div>
+              <button class="room-join-btn">
+                <i class="fas fa-arrow-right"></i>
+              </button>
+            </div>
+
+            <div
+              class="room-card"
+              data-room="entertainment"
+              data-key="m0v1e5buff99"
             >
-              <line x1="22" y1="2" x2="11" y2="13"></line>
-              <polygon points="22,2 15,22 11,13 2,9"></polygon>
-            </svg>
-          </button>
+              <div class="room-icon">
+                <i class="fas fa-film"></i>
+              </div>
+              <div class="room-info">
+                <h3 class="room-title">Entertainment</h3>
+                <p class="room-description">
+                  Movies, shows, and entertainment chat
+                </p>
+                <div class="room-key">
+                  <span class="key-label">Access Key:</span>
+                  <code class="key-value">m0v1e5buff99</code>
+                </div>
+              </div>
+              <button class="room-join-btn">
+                <i class="fas fa-arrow-right"></i>
+              </button>
+            </div>
+
+            <div class="room-card" data-room="gaming" data-key="gm9x7kp2qwer">
+              <div class="room-icon">
+                <i class="fas fa-gamepad"></i>
+              </div>
+              <div class="room-info">
+                <h3 class="room-title">Gaming Lounge</h3>
+                <p class="room-description">Gaming community and discussions</p>
+                <div class="room-key">
+                  <span class="key-label">Access Key:</span>
+                  <code class="key-value">gm9x7kp2qwer</code>
+                </div>
+              </div>
+              <button class="room-join-btn">
+                <i class="fas fa-arrow-right"></i>
+              </button>
+            </div>
+
+            <div class="room-card" data-room="sports" data-key="sp0rts9fan22">
+              <div class="room-icon">
+                <i class="fas fa-trophy"></i>
+              </div>
+              <div class="room-info">
+                <h3 class="room-title">Sports Arena</h3>
+                <p class="room-description">Sports discussions and updates</p>
+                <div class="room-key">
+                  <span class="key-label">Access Key:</span>
+                  <code class="key-value">sp0rts9fan22</code>
+                </div>
+              </div>
+              <button class="room-join-btn">
+                <i class="fas fa-arrow-right"></i>
+              </button>
+            </div>
+
+            <div
+              class="room-card"
+              data-room="lifestyle"
+              data-key="f00d1e3love4"
+            >
+              <div class="room-icon">
+                <i class="fas fa-utensils"></i>
+              </div>
+              <div class="room-info">
+                <h3 class="room-title">Lifestyle & Food</h3>
+                <p class="room-description">
+                  Culinary discussions and lifestyle tips
+                </p>
+                <div class="room-key">
+                  <span class="key-label">Access Key:</span>
+                  <code class="key-value">f00d1e3love4</code>
+                </div>
+              </div>
+              <button class="room-join-btn">
+                <i class="fas fa-arrow-right"></i>
+              </button>
+            </div>
+
+            <div class="room-card" data-room="travel" data-key="tr4v3l5wander">
+              <div class="room-icon">
+                <i class="fas fa-globe"></i>
+              </div>
+              <div class="room-info">
+                <h3 class="room-title">Travel & Culture</h3>
+                <p class="room-description">
+                  Travel experiences and cultural exchange
+                </p>
+                <div class="room-key">
+                  <span class="key-label">Access Key:</span>
+                  <code class="key-value">tr4v3l5wander</code>
+                </div>
+              </div>
+              <button class="room-join-btn">
+                <i class="fas fa-arrow-right"></i>
+              </button>
+            </div>
+
+            <div class="room-card" data-room="general" data-key="rnd0m6chat77">
+              <div class="room-icon">
+                <i class="fas fa-comments"></i>
+              </div>
+              <div class="room-info">
+                <h3 class="room-title">General Discussion</h3>
+                <p class="room-description">Open forum for any topic</p>
+                <div class="room-key">
+                  <span class="key-label">Access Key:</span>
+                  <code class="key-value">rnd0m6chat77</code>
+                </div>
+              </div>
+              <button class="room-join-btn">
+                <i class="fas fa-arrow-right"></i>
+              </button>
+            </div>
+          </div>
+
+          <div class="custom-access">
+            <div class="custom-access-card">
+              <div class="custom-access-header">
+                <h3>Custom Access Key</h3>
+                <p>Have a private room key? Enter it below to join</p>
+              </div>
+              <div class="input-group">
+                <div class="input-wrapper">
+                  <i class="fas fa-key input-icon"></i>
+                  <input
+                    type="text"
+                    id="customKey"
+                    class="custom-input"
+                    placeholder="Enter your access key..."
+                    maxlength="20"
+                    autocomplete="off"
+                  />
+                </div>
+                <button class="join-button" id="joinCustom">
+                  <span>Join Room</span>
+                  <i class="fas fa-arrow-right"></i>
+                </button>
+
+                <input
+                  id="messageInput"
+                  type="text"
+                  placeholder="Type your message"
+                  disabled
+                />
+                <button id="sendBtn" disabled>Send</button>
+              </div>
+              <div id="statusMessage" class="status-message"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <div class="container">
+        <div class="footer-content">
+          <div class="footer-section">
+            <h4>Go Flow Chat</h4>
+            <p>
+              Professional communication platform for teams and communities.
+            </p>
+          </div>
+          <div class="footer-section">
+            <h4>Support</h4>
+            <a href="#help">Help Center</a>
+            <a href="#contact">Contact Us</a>
+          </div>
+          <div class="footer-section">
+            <h4>Legal</h4>
+            <a href="#privacy">Privacy Policy</a>
+            <a href="#terms">Terms of Service</a>
+          </div>
+        </div>
+        <div class="footer-bottom">
+          <p>&copy; 2025 Go Flow Chat. All rights reserved.</p>
         </div>
       </div>
-    </div>
-    <script src="index.js">few</script>
+    </footer>
+
+    <script src="index.js"></script>
   </body>
 </html>
