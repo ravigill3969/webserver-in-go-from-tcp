@@ -117,24 +117,31 @@ func handleWebSocketEcho(conn net.Conn) {
 			return
 		}
 		fmt.Println("Received:", msg)
-		writeWebSocketText(conn, "Echo: "+msg)
+		err = writeWebSocketText(conn, "Echo: "+msg)
+		fmt.Println(err)
 	}
 }
 func readWebSocketFrame(conn net.Conn) (string, error) {
 	header := make([]byte, 2)
-	fmt.Println("inside read websocket frame")
-	fmt.Println("Waiting to read 2 bytes header...")
+
 	n, err := io.ReadFull(conn, header)
-	
+
 	fmt.Printf("Read %d bytes, err: %v\n", n, err)
 	if err != nil {
 		return "", err
 	}
 
 	fin := header[0]&0x80 != 0
+	// fin := header[0]&128 != 0
+
 	opcode := header[0] & 0x0F
+	// opcode := header[0] & 15 // 15 = 0x0F
+
 	mask := header[1]&0x80 != 0
+
+	//mask := header[0]&128 != 0
 	payloadLen := int(header[1] & 0x7F)
+	// payloadLen := int(header[1] & 127)
 
 	// **Extended payload length handling starts here**
 	switch payloadLen {
@@ -157,11 +164,6 @@ func readWebSocketFrame(conn net.Conn) (string, error) {
 		}
 		payloadLen = int(payloadLen64)
 	}
-
-	fmt.Printf("FIN: %v\n", fin)
-	fmt.Printf("Opcode: %d\n", opcode)
-	fmt.Printf("MASK: %v\n", mask)
-	fmt.Printf("Payload Length: %d\n", payloadLen)
 
 	if opcode == 0x8 {
 		fmt.Println("Received close frame")
@@ -193,11 +195,26 @@ func readWebSocketFrame(conn net.Conn) (string, error) {
 
 func writeWebSocketText(conn net.Conn, message string) error {
 	payload := []byte(message)
-	frame := []byte{
-		0x81,               // FIN=1, opcode=1 (text)
-		byte(len(payload)), // assuming len < 126
+	payloadLen := len(payload)
+
+	// header := []byte{0x81} // FIN=1, text frame
+	header := []byte{129}
+
+	// Set length — do NOT mask
+	if payloadLen < 126 {
+		header = append(header, byte(payloadLen))
+	} else if payloadLen < 65536 {
+		header = append(header, 126)
+		header = append(header, byte(payloadLen>>8), byte(payloadLen&0xff))
+	} else {
+		header = append(header, 127)
+		for i := 7; i >= 0; i-- {
+			header = append(header, byte(payloadLen>>(8*i)))
+		}
 	}
-	frame = append(frame, payload...)
+
+	// No mask, just append payload
+	frame := append(header, payload...)
 	_, err := conn.Write(frame)
 	return err
 }
