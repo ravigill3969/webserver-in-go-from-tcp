@@ -9,7 +9,17 @@ import (
 	"net"
 	"os"
 	"strings"
+	"sync"
 )
+
+type Client struct {
+	Conn net.Conn
+	IP   net.IP
+	Room string
+}
+
+var rooms = make(map[string][]*Client)
+var mu sync.Mutex
 
 func main() {
 	l, err := net.Listen("tcp", ":8080")
@@ -32,6 +42,8 @@ func main() {
 
 func handleConnection(conn net.Conn) {
 	defer conn.Close()
+
+	// userIp := conn.RemoteAddr().String()
 
 	buffer := make([]byte, 1024)
 	n, err := conn.Read(buffer)
@@ -64,6 +76,8 @@ func handleConnection(conn net.Conn) {
 
 	url := strings.Split(path, "/")
 
+	parserUserIPandStoreInMapWithGrpId(conn, url[0])
+
 	if url[1] == "ws" && strings.Contains(request, "Upgrade: websocket") {
 		handleWebSocketHandshake(conn, headers)
 		handleWebSocketEcho(conn)
@@ -91,6 +105,7 @@ func handleConnection(conn net.Conn) {
 
 func handleWebSocketHandshake(conn net.Conn, headers map[string]string) error {
 	key, ok := headers["Sec-WebSocket-Key"]
+
 	if !ok {
 		return fmt.Errorf("missing Sec-WebSocket-Key")
 	}
@@ -109,18 +124,41 @@ func handleWebSocketHandshake(conn net.Conn, headers map[string]string) error {
 }
 
 func handleWebSocketEcho(conn net.Conn) {
+	var client *Client
+
+	// Find the client object from connection
+	mu.Lock()
+	for _, clients := range rooms {
+		for _, c := range clients {
+			if c.Conn == conn {
+				client = c
+				break
+			}
+		}
+		if client != nil {
+			break
+		}
+	}
+	mu.Unlock()
+
+	if client == nil {
+		fmt.Println("Client not found in room list")
+		return
+	}
+
 	for {
 		msg, err := readWebSocketFrame(conn)
-		fmt.Println(msg, err)
 		if err != nil {
-			fmt.Println("Read error:", err)
+			fmt.Println("WebSocket read error:", err)
+			removeClient(client)
 			return
 		}
-		fmt.Println("Received:", msg)
-		err = writeWebSocketText(conn, "Echo: "+msg)
-		fmt.Println(err)
+
+		fmt.Println("Broadcasting message:", msg)
+		broadcastToRoom(client.Room, msg, client)
 	}
 }
+
 func readWebSocketFrame(conn net.Conn) (string, error) {
 	header := make([]byte, 2)
 
@@ -197,8 +235,8 @@ func writeWebSocketText(conn net.Conn, message string) error {
 	payload := []byte(message)
 	payloadLen := len(payload)
 
-	// header := []byte{0x81} // FIN=1, text frame
-	header := []byte{129}
+	header := []byte{0x81} // FIN=1, text frame
+	// header := []byte{129}
 
 	// Set length — do NOT mask
 	if payloadLen < 126 {
@@ -262,4 +300,47 @@ func HeaderToMap(request string) map[string]string {
 
 	return headersMap
 
+}
+
+func parserUserIPandStoreInMapWithGrpId(conn net.Conn, roomKey string) {
+
+	client := &Client{
+		Conn: conn,
+		IP:   conn.RemoteAddr().(*net.TCPAddr).IP,
+		Room: roomKey,
+	}
+
+	mu.Lock()
+	rooms[roomKey] = append(rooms[roomKey], client)
+	mu.Unlock()
+
+}
+
+func broadcastToRoom(room string, message string, sender *Client) {
+	mu.Lock()
+	defer mu.Unlock()
+
+	for _, client := range rooms[room] {
+		if client.Conn != sender.Conn {
+			err := writeWebSocketText(client.Conn, message)
+			if err != nil {
+				fmt.Println("Error sending message:", err)
+			}
+		}
+	}
+}
+
+func removeClient(client *Client) {
+	mu.Lock()
+	defer mu.Unlock()
+
+	clients := rooms[client.Room]
+	for i, c := range clients {
+		if c.Conn == client.Conn {
+			rooms[client.Room] = append(clients[:i], clients[i+1:]...)
+			break
+		}
+	}
+
+	client.Conn.Close()
 }

@@ -14,31 +14,17 @@ function setConnected(connected) {
 
 joinBtn.addEventListener("click", () => {
   const room = keyInput.value.trim();
+
+  sessionStorage.setItem("room", room);
+
+  // Redirect to chat page
+
   if (!room) {
     alert("Please enter a room key.");
     return;
   }
-  socket = new WebSocket(`ws://localhost:8080/ws/${room}`);
 
-  socket.onopen = () => {
-    console.log("Connected to room:", room);
-    setConnected(true);
-  };
-
-  socket.onmessage = (event) => {
-    console.log("Received:", event.data);
-  };
-
-  socket.onerror = (error) => {
-    console.error("WebSocket error:", error);
-    alert("WebSocket error. Check console.");
-  };
-
-  socket.onclose = () => {
-    console.log("Disconnected");
-    setConnected(false);
-    socket = null;
-  };
+  window.location.assign("/chat/chat.html");
 });
 
 sendBtn.addEventListener("click", () => {
