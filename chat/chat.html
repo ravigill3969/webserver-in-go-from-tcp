@@ -4,8 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Go Flow Chat - Anonymous Room</title>
-    <link rel="stylesheet" href="/chat/chat.css" />
-
+    <link rel="stylesheet" href="chat.css" />
     <link
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
       rel="stylesheet"
@@ -20,7 +19,7 @@
       <!-- Header -->
       <header class="chat-header">
         <div class="header-left">
-          <button class="back-btn">
+          <button class="back-btn" title="Go back">
             <i class="fas fa-arrow-left"></i>
           </button>
           <div class="room-info">
@@ -58,114 +57,15 @@
         <div class="message system">
           <div class="system-message">
             <i class="fas fa-info-circle"></i>
-            <span
-              >Welcome to the anonymous chat room. Everyone appears as
-              "Anonymous" here.</span
-            >
+            <span>
+              Welcome to the anonymous chat room. Everyone appears as
+              "Anonymous" here.
+            </span>
           </div>
         </div>
 
-        <div class="message other">
-          <div class="message-avatar">
-            <i class="fas fa-user"></i>
-          </div>
-          <div class="message-content">
-            <div class="message-header">
-              <span class="sender-name">Anonymous</span>
-              <span class="message-time">9:15 AM</span>
-            </div>
-            <div class="message-text">
-              Hello everyone! Great to be here in this anonymous space where we
-              can freely share our thoughts.
-            </div>
-          </div>
-        </div>
-
-        <div class="message other">
-          <div class="message-avatar">
-            <i class="fas fa-user"></i>
-          </div>
-          <div class="message-content">
-            <div class="message-header">
-              <span class="sender-name">Anonymous</span>
-              <span class="message-time">9:17 AM</span>
-            </div>
-            <div class="message-text">
-              I love the privacy this provides. We can have honest conversations
-              without judgment.
-            </div>
-          </div>
-        </div>
-
-        <div class="message self">
-          <div class="message-content">
-            <div class="message-header">
-              <span class="message-time">9:18 AM</span>
-            </div>
-            <div class="message-text">
-              Absolutely! It's refreshing to communicate without any
-              preconceptions or biases.
-            </div>
-            <div class="message-status">
-              <i class="fas fa-check-double read"></i>
-            </div>
-          </div>
-        </div>
-
-        <div class="message other">
-          <div class="message-avatar">
-            <i class="fas fa-user"></i>
-          </div>
-          <div class="message-content">
-            <div class="message-header">
-              <span class="sender-name">Anonymous</span>
-              <span class="message-time">9:20 AM</span>
-            </div>
-            <div class="message-text">
-              Does anyone want to discuss interesting topics? I'm thinking about
-              philosophy, technology, or current events.
-            </div>
-          </div>
-        </div>
-
-        <div class="message other">
-          <div class="message-avatar">
-            <i class="fas fa-user"></i>
-          </div>
-          <div class="message-content">
-            <div class="message-header">
-              <span class="sender-name">Anonymous</span>
-              <span class="message-time">9:22 AM</span>
-            </div>
-            <div class="message-text">
-              I'm interested in discussing the impact of AI on society. What are
-              everyone's thoughts?
-            </div>
-          </div>
-        </div>
-
-        <div class="message system">
-          <div class="system-message">
-            <i class="fas fa-user-plus"></i>
-            <span>An anonymous user joined the room</span>
-          </div>
-        </div>
-
-        <div class="message other">
-          <div class="message-avatar">
-            <i class="fas fa-user"></i>
-          </div>
-          <div class="message-content">
-            <div class="message-header">
-              <span class="sender-name">Anonymous</span>
-              <span class="message-time">9:25 AM</span>
-            </div>
-            <div class="message-text">
-              That's a fascinating topic! I think AI will fundamentally change
-              how we work and communicate.
-            </div>
-          </div>
-        </div>
+        <!-- Dynamic messages will be rendered here -->
+        <div id="chatBox"></div>
       </main>
 
       <!-- Message Input -->
