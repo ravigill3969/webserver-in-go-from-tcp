@@ -34,8 +34,6 @@ func main() {
 func handleConnection(conn net.Conn) {
 	defer conn.Close()
 
-	// userIp := conn.RemoteAddr().String()
-
 	buffer := make([]byte, 1024)
 	n, err := conn.Read(buffer)
 	if err != nil {
@@ -67,13 +65,13 @@ func handleConnection(conn net.Conn) {
 
 	url := strings.Split(path, "/")
 
-	socket.ParserUserIPandStoreInMapWithGrpId(conn, url[0])
-
 	if url[1] == "ws" && strings.Contains(request, "Upgrade: websocket") {
+
+		socket.ParserUserIPandStoreInMapWithGrpId(conn, url[2])
 		socket.HandleWebSocketHandshake(conn, headers)
-		fmt.Printf("New connection from %s\n", conn.RemoteAddr().String())
 
 		socket.HandleWebSocketEcho(conn)
+		return
 	}
 
 	switch {

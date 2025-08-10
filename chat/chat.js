@@ -39,6 +39,12 @@ socket.onclose = () => {
   updateConnectionStatus(false);
 };
 
+window.addEventListener("beforeunload", () => {
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.close(1000, "User is leaving the page");
+  }
+});
+
 // Send message
 sendBtn.addEventListener("click", sendMessage);
 textarea.addEventListener("keydown", (e) => {

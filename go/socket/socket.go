@@ -41,7 +41,7 @@ func HandleWebSocketHandshake(conn net.Conn, headers map[string]string) error {
 	return err
 }
 
-//-------------------------------------------------------------------------//
+// -------------------------------------------------------------------------//
 
 func HandleWebSocketEcho(conn net.Conn) {
 	var client *Client
@@ -49,6 +49,7 @@ func HandleWebSocketEcho(conn net.Conn) {
 	// Find the client object from connection
 	mu.Lock()
 	for _, clients := range rooms {
+		fmt.Println(len(rooms))
 		for _, c := range clients {
 			if c.Conn == conn {
 				client = c
@@ -70,7 +71,6 @@ func HandleWebSocketEcho(conn net.Conn) {
 		msg, err := ReadWebSocketFrame(conn)
 		if err != nil {
 			fmt.Println("WebSocket read error:", err)
-			removeClient(client)
 			return
 		}
 
@@ -190,29 +190,13 @@ func broadcastToRoom(room string, message string, sender *Client) {
 	for _, client := range rooms[room] {
 		if client.Conn != sender.Conn {
 			err := writeWebSocketText(client.Conn, message)
+			fmt.Println(client.Conn.RemoteAddr().String(), sender.Conn.RemoteAddr().String())
 			if err != nil {
 				fmt.Println("Error sending message:", err)
 
 			}
 		}
 	}
-}
-
-//-------------------------------------------------------------------------//
-
-func removeClient(client *Client) {
-	mu.Lock()
-	defer mu.Unlock()
-
-	clients := rooms[client.Room]
-	for i, c := range clients {
-		if c.Conn == client.Conn {
-			rooms[client.Room] = append(clients[:i], clients[i+1:]...)
-			break
-		}
-	}
-
-	client.Conn.Close()
 }
 
 //-------------------------------------------------------------------------//
@@ -226,7 +210,19 @@ func ParserUserIPandStoreInMapWithGrpId(conn net.Conn, roomKey string) {
 	}
 
 	mu.Lock()
+
+	fmt.Println(roomKey)
 	rooms[roomKey] = append(rooms[roomKey], client)
+
+	for roomKey, clients := range rooms {
+		fmt.Printf("Room: %s\n", roomKey)
+		for i, client := range clients {
+			fmt.Printf("  Client %d: IP=%s, Room=%s\n", i, client.IP.String(), client.Room)
+		}
+	}
+
 	mu.Unlock()
 
 }
+
+//-------------------------------------------------------------------------//
