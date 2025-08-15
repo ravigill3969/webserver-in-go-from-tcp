@@ -11,9 +11,10 @@ import (
 )
 
 type Client struct {
-	Conn net.Conn
-	IP   net.IP
-	Room string
+	Conn     net.Conn
+	IP       net.IP
+	Room     string
+	SendChan chan string
 }
 
 var rooms = make(map[string][]*Client)
@@ -41,7 +42,7 @@ func HandleWebSocketHandshake(conn net.Conn, headers map[string]string) error {
 	return err
 }
 
-// -------------------------------------------------------------------------//
+//-------------------------------------------------------------------------//
 
 func HandleWebSocketEcho(conn net.Conn) {
 	var client *Client
@@ -49,7 +50,6 @@ func HandleWebSocketEcho(conn net.Conn) {
 	// Find the client object from connection
 	mu.Lock()
 	for _, clients := range rooms {
-		fmt.Println(len(rooms))
 		for _, c := range clients {
 			if c.Conn == conn {
 				client = c
@@ -67,13 +67,13 @@ func HandleWebSocketEcho(conn net.Conn) {
 		return
 	}
 
+	// Reader loop
 	for {
 		msg, err := ReadWebSocketFrame(conn)
 		if err != nil {
 			fmt.Println("WebSocket read error:", err)
 			return
 		}
-
 		fmt.Println("Broadcasting message:", msg)
 		broadcastToRoom(client.Room, msg, client)
 	}
@@ -84,38 +84,26 @@ func HandleWebSocketEcho(conn net.Conn) {
 func ReadWebSocketFrame(conn net.Conn) (string, error) {
 	header := make([]byte, 2)
 
-	n, err := io.ReadFull(conn, header)
-
-	fmt.Printf("Read %d bytes, err: %v\n", n, err)
+	_, err := io.ReadFull(conn, header)
 	if err != nil {
 		return "", err
 	}
 
 	fin := header[0]&0x80 != 0
-	// fin := header[0]&128 != 0
-
 	opcode := header[0] & 0x0F
-	// opcode := header[0] & 15 // 15 = 0x0F
-
 	mask := header[1]&0x80 != 0
-
-	//mask := header[0]&128 != 0
 	payloadLen := int(header[1] & 0x7F)
-	// payloadLen := int(header[1] & 127)
 
-	// **Extended payload length handling starts here**
 	switch payloadLen {
 	case 126:
 		extended := make([]byte, 2)
 		if _, err := io.ReadFull(conn, extended); err != nil {
-			fmt.Println("Error reading extended payload length:", err)
 			return "", err
 		}
 		payloadLen = int(binary.BigEndian.Uint16(extended))
 	case 127:
 		extended := make([]byte, 8)
 		if _, err := io.ReadFull(conn, extended); err != nil {
-			fmt.Println("Error reading extended payload length:", err)
 			return "", err
 		}
 		payloadLen64 := binary.BigEndian.Uint64(extended)
@@ -126,12 +114,11 @@ func ReadWebSocketFrame(conn net.Conn) (string, error) {
 	}
 
 	if opcode == 0x8 {
-		fmt.Println("Received close frame")
 		return "", io.EOF
 	}
 
 	if !fin || opcode != 0x1 || !mask {
-		return "", fmt.Errorf("unsupported frame (FIN=%v, opcode=0x%x, mask=%v)", fin, opcode, mask)
+		return "", fmt.Errorf("unsupported frame")
 	}
 
 	maskKey := make([]byte, 4)
@@ -148,8 +135,6 @@ func ReadWebSocketFrame(conn net.Conn) (string, error) {
 		payload[i] ^= maskKey[i%4]
 	}
 
-	fmt.Printf("Payload data: %s\n", string(payload))
-
 	return string(payload), nil
 }
 
@@ -159,10 +144,8 @@ func writeWebSocketText(conn net.Conn, message string) error {
 	payload := []byte(message)
 	payloadLen := len(payload)
 
-	header := []byte{0x81} // FIN=1, text frame
-	// header := []byte{129}
+	header := []byte{0x81}
 
-	// Set length — do NOT mask
 	if payloadLen < 126 {
 		header = append(header, byte(payloadLen))
 	} else if payloadLen < 65536 {
@@ -175,7 +158,6 @@ func writeWebSocketText(conn net.Conn, message string) error {
 		}
 	}
 
-	// No mask, just append payload
 	frame := append(header, payload...)
 	_, err := conn.Write(frame)
 	return err
@@ -189,11 +171,11 @@ func broadcastToRoom(room string, message string, sender *Client) {
 
 	for _, client := range rooms[room] {
 		if client.Conn != sender.Conn {
-			err := writeWebSocketText(client.Conn, message)
-			fmt.Println(client.Conn.RemoteAddr().String(), sender.Conn.RemoteAddr().String())
-			if err != nil {
-				fmt.Println("Error sending message:", err)
+			select {
+			case client.SendChan <- message:
 
+			default:
+				fmt.Println("SendChan full for", client.IP)
 			}
 		}
 	}
@@ -202,27 +184,41 @@ func broadcastToRoom(room string, message string, sender *Client) {
 //-------------------------------------------------------------------------//
 
 func ParserUserIPandStoreInMapWithGrpId(conn net.Conn, roomKey string) {
-
 	client := &Client{
-		Conn: conn,
-		IP:   conn.RemoteAddr().(*net.TCPAddr).IP,
-		Room: roomKey,
+		Conn:     conn,
+		IP:       conn.RemoteAddr().(*net.TCPAddr).IP,
+		Room:     roomKey,
+		SendChan: make(chan string, 256),
 	}
 
+	// Writer goroutine for this client
+	go func(c *Client) {
+		for msg := range c.SendChan {
+			if err := writeWebSocketText(c.Conn, msg); err != nil {
+				removeClient(c)
+				return
+			}
+		}
+	}(client)
+
 	mu.Lock()
-
-	fmt.Println(roomKey)
 	rooms[roomKey] = append(rooms[roomKey], client)
+	mu.Unlock()
+}
 
-	for roomKey, clients := range rooms {
-		fmt.Printf("Room: %s\n", roomKey)
-		for i, client := range clients {
-			fmt.Printf("  Client %d: IP=%s, Room=%s\n", i, client.IP.String(), client.Room)
+func removeClient(c *Client) {
+	mu.Lock()
+	defer mu.Unlock()
+
+	clients := rooms[c.Room]
+	for i := 0; i < len(clients); i++ {
+		if clients[i] == c {
+			rooms[c.Room] = append(clients[:i], clients[i+1:]...)
+			fmt.Println(c.Room)
+			break
 		}
 	}
 
-	mu.Unlock()
-
+	close(c.SendChan)
+	c.Conn.Close()
 }
-
-//-------------------------------------------------------------------------//
